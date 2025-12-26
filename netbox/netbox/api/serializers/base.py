@@ -69,6 +69,12 @@ class BaseModelSerializer(serializers.ModelSerializer):
                     return None
             except (ImportError, AttributeError):
                 pass
+            # If we receive a dict with just "id", that's a valid nested reference
+            # Skip all validation and just look up the object
+            if isinstance(data, dict) and len(data) == 1 and "id" in data:
+                queryset = self.Meta.model.objects.all()
+                return get_related_object_by_attrs(queryset, data)
+            # For other dict formats or integer IDs, also use get_related_object_by_attrs
             queryset = self.Meta.model.objects.all()
             return get_related_object_by_attrs(queryset, data)
 
