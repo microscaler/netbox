@@ -86,9 +86,17 @@ class BaseModelSerializer(serializers.ModelSerializer):
                     return None
             except (ImportError, AttributeError):
                 pass
-            # For nested serializers, always use get_related_object_by_attrs to look up the object
-            # This bypasses all field-level validation which would require full object data
-            # Accept: integer ID, {"id": X}, or other dict formats for lookup
+            # If we receive a dict with just "id" or an integer, bypass ALL validation
+            # including field-level validation that would check required fields
+            if isinstance(data, dict) and len(data) == 1 and "id" in data:
+                # Direct ID lookup - completely bypass DRF's to_internal_value which would validate fields
+                queryset = self.Meta.model.objects.all()
+                return get_related_object_by_attrs(queryset, data)
+            elif isinstance(data, int):
+                # Integer ID - convert to dict and lookup
+                queryset = self.Meta.model.objects.all()
+                return get_related_object_by_attrs(queryset, {"id": data})
+            # For other dict formats, still use get_related_object_by_attrs to bypass field validation
             queryset = self.Meta.model.objects.all()
             return get_related_object_by_attrs(queryset, data)
 
