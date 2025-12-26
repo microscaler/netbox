@@ -37,6 +37,12 @@ class BaseModelSerializer(serializers.ModelSerializer):
             self._requested_fields = getattr(self.Meta, 'brief_fields', None)
 
         super().__init__(*args, **kwargs)
+        
+        # For nested serializers, make all fields not required to bypass field-level validation
+        if self.nested:
+            for field_name, field in self.fields.items():
+                field.required = False
+                field.allow_null = True
 
     def run_validation(self, data=serializers.empty):
         """
@@ -50,6 +56,7 @@ class BaseModelSerializer(serializers.ModelSerializer):
             # Handle serializers.empty case - if data is empty, return None
             if data is serializers.empty:
                 return None
+            # Bypass DRF's field validation entirely by going straight to to_internal_value
             return self.to_internal_value(data)
 
         return super().run_validation(data)
