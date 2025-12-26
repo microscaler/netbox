@@ -56,7 +56,17 @@ class BaseModelSerializer(serializers.ModelSerializer):
             # Handle serializers.empty case - if data is empty, return None
             if data is serializers.empty:
                 return None
-            # Bypass DRF's field validation entirely by going straight to to_internal_value
+            # If we receive a dict with just "id" or an integer, bypass all validation
+            # and go straight to lookup
+            if isinstance(data, dict) and len(data) == 1 and "id" in data:
+                # Direct ID lookup - skip all validation
+                queryset = self.Meta.model.objects.all()
+                return get_related_object_by_attrs(queryset, data)
+            elif isinstance(data, int):
+                # Integer ID - convert to dict and lookup
+                queryset = self.Meta.model.objects.all()
+                return get_related_object_by_attrs(queryset, {"id": data})
+            # For other formats, still bypass validation but use to_internal_value
             return self.to_internal_value(data)
 
         return super().run_validation(data)
