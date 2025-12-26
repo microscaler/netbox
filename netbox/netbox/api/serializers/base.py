@@ -47,6 +47,9 @@ class BaseModelSerializer(serializers.ModelSerializer):
         if self.nested:
             # For nested serializers, skip field-level validation and go straight to
             # to_internal_value which will look up the object by ID/attrs
+            # Handle serializers.empty case - if data is empty, return None
+            if data is serializers.empty:
+                return None
             return self.to_internal_value(data)
 
         return super().run_validation(data)
