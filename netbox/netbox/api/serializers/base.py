@@ -59,6 +59,16 @@ class BaseModelSerializer(serializers.ModelSerializer):
         # If initialized as a nested serializer, we should expect to receive the attrs or PK
         # identifying a related object.
         if self.nested:
+            # Handle empty values - if data is empty or None, return None
+            if data is None or data is serializers.empty:
+                return None
+            # Also check for rest_framework.fields.empty class instance
+            try:
+                from rest_framework.fields import empty as drf_empty
+                if data is drf_empty:
+                    return None
+            except (ImportError, AttributeError):
+                pass
             queryset = self.Meta.model.objects.all()
             return get_related_object_by_attrs(queryset, data)
 
