@@ -72,13 +72,25 @@ class BaseModelSerializer(serializers.ModelSerializer):
         return super().run_validation(data)
 
     def to_internal_value(self, data):
-
-        # If initialized as a nested serializer, we should expect to receive the attrs or PK
-        # identifying a related object.
+        """
+        Override to_internal_value for nested serializers to behave like WritableNestedSerializer.
+        
+        When nested=True, we should completely bypass DRF's field validation and go straight
+        to object lookup, just like WritableNestedSerializer does. This prevents validation
+        errors for required fields when we only provide an ID reference.
+        """
         if self.nested:
-            # Handle empty values - if data is empty or None, return None
-            if data is None or data is serializers.empty:
+            # When nested=True, behave exactly like WritableNestedSerializer:
+            # - Never call super().to_internal_value() which would trigger field validation
+            # - Always use get_related_object_by_attrs to look up the object
+            # - Handle None, empty values, {"id": X}, integer IDs, and other formats
+            if data is None:
                 return None
+            
+            # Handle serializers.empty
+            if data is serializers.empty:
+                return None
+            
             # Also check for rest_framework.fields.empty class instance
             try:
                 from rest_framework.fields import empty as drf_empty
@@ -86,17 +98,9 @@ class BaseModelSerializer(serializers.ModelSerializer):
                     return None
             except (ImportError, AttributeError):
                 pass
-            # If we receive a dict with just "id" or an integer, bypass ALL validation
-            # including field-level validation that would check required fields
-            if isinstance(data, dict) and len(data) == 1 and "id" in data:
-                # Direct ID lookup - completely bypass DRF's to_internal_value which would validate fields
-                queryset = self.Meta.model.objects.all()
-                return get_related_object_by_attrs(queryset, data)
-            elif isinstance(data, int):
-                # Integer ID - convert to dict and lookup
-                queryset = self.Meta.model.objects.all()
-                return get_related_object_by_attrs(queryset, {"id": data})
-            # For other dict formats, still use get_related_object_by_attrs to bypass field validation
+            
+            # For nested serializers, always use get_related_object_by_attrs
+            # This bypasses ALL field validation, just like WritableNestedSerializer
             queryset = self.Meta.model.objects.all()
             return get_related_object_by_attrs(queryset, data)
 
