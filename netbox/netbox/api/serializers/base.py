@@ -46,27 +46,18 @@ class BaseModelSerializer(serializers.ModelSerializer):
 
     def run_validation(self, data=serializers.empty):
         """
-        Override run_validation to skip field-level validation for nested serializers.
-        When nested=True, we only need to look up the object by ID/attrs, not validate
-        all required fields.
+        Override run_validation for nested serializers to completely bypass field validation.
+        
+        When nested=True, we should behave like WritableNestedSerializer - completely
+        bypass DRF's validation and go straight to object lookup via to_internal_value.
+        Never call super().run_validation() which would trigger field validation.
         """
         if self.nested:
-            # For nested serializers, skip field-level validation and go straight to
-            # to_internal_value which will look up the object by ID/attrs
-            # Handle serializers.empty case - if data is empty, return None
+            # For nested serializers, completely bypass DRF's run_validation
+            # which would validate fields. Go straight to to_internal_value.
             if data is serializers.empty:
                 return None
-            # If we receive a dict with just "id" or an integer, bypass all validation
-            # and go straight to lookup
-            if isinstance(data, dict) and len(data) == 1 and "id" in data:
-                # Direct ID lookup - skip all validation
-                queryset = self.Meta.model.objects.all()
-                return get_related_object_by_attrs(queryset, data)
-            elif isinstance(data, int):
-                # Integer ID - convert to dict and lookup
-                queryset = self.Meta.model.objects.all()
-                return get_related_object_by_attrs(queryset, {"id": data})
-            # For other formats, still bypass validation but use to_internal_value
+            # Delegate to to_internal_value which handles all formats
             return self.to_internal_value(data)
 
         return super().run_validation(data)
